@@ -333,13 +333,6 @@ class shell:
         return Job_data
     
     
-    import pandas as pd
-from bs4 import BeautifulSoup as bs
-import requests
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-import time
-import random
 
 # url_search_results = r'https://krb-sjobs.brassring.com/tgnewui/search/home/home?partnerid=30080&siteid=6558#keyWordSearch='
 
