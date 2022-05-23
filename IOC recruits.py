@@ -1,12 +1,14 @@
 
 import pandas as pd
-# from bs4 import BeautifulSoup as bs
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
 import re
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+from bs4 import BeautifulSoup as bs
+import requests
+import random
 
 
 # url_bp = r'https://www.linkedin.com/jobs/search/?f_C=1389%2C1391&geoId=92000000'
