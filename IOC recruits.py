@@ -16,18 +16,21 @@ url_bp=r'https://www.linkedin.com/company/bp/jobs/'
 
 
 def main():
+    # LinkedIn can only show 1000 jobs, Shell and Total have more than one thousand entries, therefore unique functions were developed for Shell and Total data
     # random_number = random.randint(2,8)
     driver = webdriver.Chrome(executable_path='C:\chromedriver.exe')
-    company_name = 'eni'
-    instance = linkedin(driver,company_name,5)
-    instance.login()
-    data = instance.data_scraping()
-    data.to_excel(company_name + 'data.xlsx')
+    # company_name = ['repsol','equinor','chevron','exxonmobil']
+    company_name = ['equinor','chevron','exxonmobil']
+    for company in company_name:
+        instance = linkedin(driver,company)
+        instance.login()
+        data = instance.data_scraping()
+        data.to_excel(company + ' data.xlsx')
 
 
 class linkedin:
 
-    def __init__(self,driver,company_name,page_number) -> None:
+    def __init__(self,driver,company_name) -> None:
 
         '''
         driver: the selenium driver to use,
@@ -36,18 +39,22 @@ class linkedin:
         '''
 
         self.driver = driver
-        self.company_job_url = r'https://www.linkedin.com/company/bp/jobs/'
-        self.page_number = page_number
+        self.company_job_url = r'https://www.linkedin.com/company/' + company_name+'/jobs/'
+        self.page_number = 5
         self.company_name = company_name
         self.search_results_initial_url = r'https://www.linkedin.com/jobs/search/?geoId=92000000&f_C=1389%2C1391&keywords=&origin=COMPANY_PAGE_JOBS_KEYWORD'
         self.search_results_first_page = r'https://www.linkedin.com/jobs/search/?f_C=1389%2C1391&geoId=92000000'
         self.company_search_url_list = [self.search_results_first_page]
+        self.batch_page_size = 5
     
     def login(self):
         # login with username and password
+
+     
+
         try:
             self.driver.get(self.company_job_url)
-            time.sleep(5)
+            self.driver.implicitly_wait(30)
             self.driver.find_element(By.CSS_SELECTOR,'#main-content > div > form > p > button').click()
             # elem = wd.find_element_by_css_selector('#session_key')
             elem = self.driver.find_element(by=By.CSS_SELECTOR, value= '#session_key')
@@ -57,12 +64,19 @@ class linkedin:
             elem.send_keys('password')
             self.driver.find_element(By.CSS_SELECTOR, value='#main-content > div > div > div > form > button').click()
         except:
-            # in case it's already signed in
-            pass
+            # wait for a while for verification
+            time.sleep(30)
+
             
         # Get to the job page
         self.driver.get(r'https://www.linkedin.com/company/' + self.company_name+'/jobs/')
-        self.driver.find_element(By.CSS_SELECTOR, value='#main > div.org-grid__content-height-enforcer > div > section > div > div > a').click()
+        self.driver.implicitly_wait(30)
+        try:
+            self.driver.find_element(By.CSS_SELECTOR, value='#main > div.org-grid__content-height-enforcer > div > section > div > div > a').click()
+        except:
+            time.sleep(10)
+            self.driver.find_element(By.CSS_SELECTOR, value='#main > div.org-grid__content-height-enforcer > div > section > div > div > a').click()
+            
 
         # switch to the newly opened window
 
@@ -72,7 +86,9 @@ class linkedin:
                 break
         # Job_list_window = self.driver.current_window_handle
         self.search_results_initial_url = self.driver.current_url
-        self.base_urls_generator()    
+        self.base_urls_generator() 
+        self.page_number = int(self.driver.find_elements(By.CSS_SELECTOR,'[class = "artdeco-pagination__indicator artdeco-pagination__indicator--number ember-view"]')[-1].text)
+
     
 
     def base_urls_generator(self):
@@ -81,6 +97,7 @@ class linkedin:
         str1 = filters.split('&')[1]
         str2 = filters.split('&')[0][1:]
         self.search_results_first_page = r'https://www.linkedin.com/jobs/search/?' + str1 +'&' + str2
+
 
 
     def page_url_generator(self):
@@ -102,16 +119,32 @@ class linkedin:
         '''
         try:
             self.driver.get(url)
+            self.driver.implicitly_wait(30)
         # list_items = wd.find_elements_by_class_name("occludable-update")
             list_items = self.driver.find_elements(By.CSS_SELECTOR, value = '.occludable-update')
         except:
             time.sleep(60+random.randint(2,8))
             self.driver.get(url)
+            self.driver.implicitly_wait(30)
             list_items = self.driver.find_elements(By.CSS_SELECTOR, value = '.occludable-update')
         # job_info = wd.find_elements(By.CLASS_NAME,value = 'jobs-search-results__list-item')
         # block = wd.find_element(By.CSS_SELECTOR,'body > div.application-outlet > div.authentication-outlet > div.job-search-ext > div.jobs-search-two-pane__wrapper > div > section.jobs-search__left-rail > div > div > ul')
         # code = block.get_attribute('innerHTML')
         # job_id = re.findall('<div data-job-id="(\d*)"',code)
+
+        if len(list_items)==0:
+            # in case the wrong page is shown, asking for refresh, than try again
+            try:
+                time.sleep(20)
+                self.driver.get(url)
+                self.driver.implicitly_wait(30)
+                 # list_items = wd.find_elements_by_class_name("occludable-update")
+                list_items = self.driver.find_elements(By.CSS_SELECTOR, value = '.occludable-update')
+            except:
+                time.sleep(60+random.randint(2,8))
+                self.driver.get(url)
+                self.driver.implicitly_wait(30)
+                list_items = self.driver.find_elements(By.CSS_SELECTOR, value = '.occludable-update')
 
         position = []
         company =[]
@@ -128,7 +161,7 @@ class linkedin:
         # executes JavaScript to scroll the div into view
             self.driver.execute_script("arguments[0].scrollIntoView();", job)
             job.click()
-            time.sleep(3)
+            time.sleep(random.randint(3,10))
             # get info:
             # [position, company, location] = job.text.split('\n')[:3]
             position_text = job.text.split('\n')[0]
@@ -152,7 +185,8 @@ class linkedin:
             # position.append(job.text.split('\n')[0])
             # company.append(job.text.split('\n')[1])
             # location.append(job.text.split('\n')[2])
-            detail = self.driver.find_element_by_id("job-details").text
+            # detail = self.driver.find_element_by_id("job-details").text
+            detail = self.driver.find_element(By.ID,"job-details").text
             if len(detail) == 0:
                 details.append('N/A')
             else:
@@ -165,9 +199,33 @@ class linkedin:
     def data_scraping(self):
         data = pd.DataFrame()
         self.page_url_generator()
-        for page in self.company_search_url_list:
-            page_data = self.get_page_info(page)
-            data = pd.concat([data, page_data])
+        page_number = len(self.company_search_url_list)
+
+        # because fo the anti-scraping mechnisam of linkedin, scrape the data by batches; each batch scrapes batch_page_size pages
+        if self.batch_page_size >= page_number:
+            self.batch_page_size = page_number
+            for page in self.company_search_url_list:
+                page_data = self.get_page_info(page)
+                data = pd.concat([data, page_data])
+        else:
+            n = page_number%self.batch_page_size
+            for i in range(0,n+1):
+                start = self.batch_page_size*n
+                end = self.batch_page_size*(n+1)
+                if i<n:
+                    for page in self.company_search_url_list[start:end]:
+                        page_data = self.get_page_info(page)
+                        data = pd.concat([data,page_data])
+                        # time.sleep(50 + random.randint(1,10))
+                else:
+                    for page in self.company_search_url_list[start:]:
+                        page_data = self.get_page_info(page)
+                        data = pd.concat([data,page_data])
+                time.sleep(50 + random.randint(1,10))
+        
+        # for page in self.company_search_url_list:
+        #     page_data = self.get_page_info(page)
+        #     data = pd.concat([data, page_data])
         return data
 
 
@@ -314,11 +372,13 @@ class total:
 
     def extract_info_from_page(self,url):
         self.driver.get(url)
+        self.driver.implicitly_wait(30)
         try:
             elem = self.driver.find_element(By.CSS_SELECTOR, '#content > div.homeContentLiner > div.clearfix.homeContent.MainContent')
         except:
             time.sleep(55+random.randint(3,10))
             self.driver.get(url)
+            self.driver.implicitly_wait(30)
             elem = self.driver.find_element(By.CSS_SELECTOR, '#content > div.homeContentLiner > div.clearfix.homeContent.MainContent')
         try:
             items = elem.find_elements(By.CSS_SELECTOR, '#content > div.homeContentLiner > div.clearfix.homeContent.MainContent > div:nth-child(4) > div.clearfix.jobDetailsMainDiv.ng-scope > div > div.questionClass.ng-scope > div')
@@ -380,3 +440,5 @@ class total:
         return data
 
 
+if __name__ == '__main__':
+    main()
